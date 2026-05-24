@@ -106,12 +106,23 @@
       const wh = workMin/60, nh = Math.min(wh,thresholdHours), oh = Math.max(0,wh-thresholdHours);
       return { normal:nh*baseHourly, overtime:oh*baseHourly*overtimeRate, total:nh*baseHourly+oh*baseHourly*overtimeRate, overHours:oh, normalHours:nh };
     }
+    function fmtJapanDate(start, end) {
+      if (!start) return '';
+      const s = new Date(start + 'T00:00:00');
+      const e = end ? new Date(end + 'T00:00:00') : null;
+      const y = s.getFullYear();
+      const sm = s.getMonth() + 1;
+      const sd = s.getDate();
+      if (!e) return y + '年' + sm + '月' + sd + '日';
+      if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
+        return y + '年' + sm + '月' + sd + '日〜' + e.getDate() + '日';
+      }
+      return y + '年' + sm + '月' + sd + '日〜' + (e.getMonth() + 1) + '月' + e.getDate() + '日';
+}
     function buildISO(dateStr, timeStr) {
       if (!dateStr||!timeStr||!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)||!/^\d{2}:\d{2}$/.test(timeStr)) return null;
       const d = new Date(`${dateStr}T${timeStr}:00`); return isNaN(d.getTime()) ? null : d.toISOString();
-    }
-
-    // ─── 報告テキスト生成 ──────────────────────────────────────
+        }    // ─── 報告テキスト生成 ──────────────────────────────────────
     function generateReportText({ ev, userName, evRecs, wage, expense }) {
       if (!ev) return "";
       const sorted = [...evRecs].sort(([a],[b])=>a>b?1:-1);
@@ -724,7 +735,7 @@
                   return (
                     <div key={ev.id} onClick={()=>{setSelectedEvent(ev);setTab(0);}} style={{background:isSelected?"rgba(138,101,255,0.25)":"rgba(255,255,255,0.05)",border:isSelected?"1px solid rgba(138,101,255,0.6)":"1px solid rgba(255,255,255,0.07)",borderRadius:16,padding:"16px 18px",marginBottom:12,cursor:"pointer",transition:"all .2s"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                        <div><div style={{fontWeight:700,fontSize:15}}>{ev.name}</div><div style={{fontSize:12,color:"#9b8fff",marginTop:2}}>📍 {ev.store}</div>{ev.start&&<div style={{fontSize:11,color:"#7b6fff",marginTop:2}}>{ev.start}〜{ev.end}</div>}</div>
+                        <div><div style={{fontSize:12,color:"#9b8fff",marginTop:2}}>📍 {ev.store}</div><div style={{fontWeight:700,fontSize:15}}>{ev.name}</div>{ev.start&&<div style={{fontSize:11,color:"#7b6fff",marginTop:2}}>{fmtJapanDate(ev.start,ev.end)}</div>}</div>
                         <div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:800,color:"#22d3a5"}}>{fmtYen(evWage)}</div><div style={{fontSize:12,color:"#c4b5ff"}}>{fmtMin(evTotal)}</div><div style={{fontSize:11,color:"#9b8fff"}}>{evDays}日</div></div>
                       </div>
                       {isSelected&&<div style={{marginTop:8,fontSize:11,color:"#a89fff",background:"rgba(138,101,255,0.2)",borderRadius:6,padding:"4px 10px",display:"inline-block"}}>✓ 選択中</div>}
