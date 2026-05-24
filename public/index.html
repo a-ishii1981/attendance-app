@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>出退勤管琁E/title>
+  <title>出退勤管理</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -24,12 +24,12 @@
   <div id="loading">
     <div class="icon">🔄</div>
     <div class="msg">読み込み中...</div>
-    <div class="sub">アプリを�E期化してぁE��ぁE/div>
+    <div class="sub">アプリを初期化しています</div>
   </div>
   <div id="root"></div>
 
   <script>
-    // ── サーバ�EAPIを使ったストレージ実裁E──────────────────
+    // ── サーバーAPIを使ったストレージ実装 ──────────────────
     window.storage = {
       async get(key) {
         try {
@@ -74,7 +74,7 @@
       try { return JSON.parse(localStorage.getItem(k) || "null") ?? fb; } catch { return fb; }
     }
 
-    // ─── チE�Eタ検証・サニタイズ ────────────────────────────────
+    // ─── データ検証・サニタイズ ────────────────────────────────
     function isValidDataKey(k) {
       const dp = k.includes("_") ? k.split("_").slice(1).join("_") : k;
       return /^\d{4}-\d{2}-\d{2}$/.test(dp);
@@ -84,7 +84,7 @@
       return Object.fromEntries(Object.entries(raw).filter(([k]) => isValidDataKey(k)));
     }
 
-    // ─── ヘルパ�E ──────────────────────────────────────────────
+    // ─── ヘルパー ──────────────────────────────────────────────
     const pad = n => String(n).padStart(2, "0");
     function localDateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
     const fmtTime = iso => { if (!iso) return "--:--"; const d = new Date(iso); return isNaN(d.getTime()) ? "--:--" : `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -106,28 +106,17 @@
       const wh = workMin/60, nh = Math.min(wh,thresholdHours), oh = Math.max(0,wh-thresholdHours);
       return { normal:nh*baseHourly, overtime:oh*baseHourly*overtimeRate, total:nh*baseHourly+oh*baseHourly*overtimeRate, overHours:oh, normalHours:nh };
     }
-    function fmtJapDate(start,end){
-if(!start)return '';
-const s=new Date(start+'T00:00:00');
-const e=end?new Date(end+'T00:00:00'):null;
-const y=s.getFullYear();
-const sm=s.getMonth()+1;
-const sd=s.getDate();
-if(!e)return y+'�N'+sm+'��'+sd+'��';
-if(s.getFullYear()===e.getFullYear()&&s.getMonth()===e.getMonth()){return y+'�N'+sm+'��'+sd+'��?'+e.getDate()+'��'}
-return y+'�N'+sm+'��'+sd+'��?'+(e.getMonth()+1)+'��'+e.getDate()+'��';
-}
-function buildISO(dateStr, timeStr) {
+    function buildISO(dateStr, timeStr) {
       if (!dateStr||!timeStr||!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)||!/^\d{2}:\d{2}$/.test(timeStr)) return null;
       const d = new Date(`${dateStr}T${timeStr}:00`); return isNaN(d.getTime()) ? null : d.toISOString();
     }
 
-    // ─── 報告テキスト生戁E──────────────────────────────────────
+    // ─── 報告テキスト生成 ──────────────────────────────────────
     function generateReportText({ ev, userName, evRecs, wage, expense }) {
       if (!ev) return "";
       const sorted = [...evRecs].sort(([a],[b])=>a>b?1:-1);
       const ym = ev.start ? ev.start.slice(0,7).replace("-","") : "";
-      let lines = [`${ym} ${ev.store ? ev.store+"\u3000" : ""}${ev.name}`, userName||"", `シフト時間�E�休�E時間�E�　実働時間`];
+      let lines = [`${ym} ${ev.store ? ev.store+"\u3000" : ""}${ev.name}`, userName||"", `シフト時間（休憩時間）　実働時間`];
       let totalMin = 0;
       for (const [key,rec] of sorted) {
         const dp = key.includes("_")?key.split("_")[1]:key;
@@ -135,7 +124,7 @@ function buildISO(dateStr, timeStr) {
         const md = `${d.getMonth()+1}/${d.getDate()}`;
         const wm = calcWork(rec); totalMin += wm;
         const brkMin = (rec.breaks||[]).reduce((s,b)=>b.start&&b.end?s+(new Date(b.end)-new Date(b.start))/60000:s,0);
-        lines.push(`${md}　${fmtTime(rec.clockIn)}-${fmtTime(rec.clockOut)}�E�E{brkMin>0?`${Math.round(brkMin)}刁E���E`:"休�EなぁE}�E�E ${toDecH(wm)}`);
+        lines.push(`${md}　${fmtTime(rec.clockIn)}-${fmtTime(rec.clockOut)}（${brkMin>0?`${Math.round(brkMin)}分休憩`:"休憩なし"}）- ${toDecH(wm)}`);
       }
       lines.push(``, `合計実働　${toDecH(totalMin)}`, ``);
       const wageTotal=evRecs.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).total,0);
@@ -143,30 +132,30 @@ function buildISO(dateStr, timeStr) {
       const overMin=evRecs.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).overHours*60,0);
       const nH=normalMin/60, oH=overMin/60;
       const { baseHourly=1400, overtimeRate=1.25 } = wage||{};
-      lines.push(`${nH%1===0?nH:nH.toFixed(2)}h ÁE${baseHourly}冁E= ${Math.round(evRecs.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).normal,0)).toLocaleString()}冁E);
-      if (overMin>0) lines.push(`${oH%1===0?oH:oH.toFixed(2)}h ÁE${baseHourly}冁EÁE${overtimeRate} = ${Math.round(evRecs.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).overtime,0)).toLocaleString()}冁E);
-      lines.push(`■TOTAL　${Math.round(wageTotal).toLocaleString()}冁E, ``);
+      lines.push(`${nH%1===0?nH:nH.toFixed(2)}h × ${baseHourly}円 = ${Math.round(evRecs.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).normal,0)).toLocaleString()}円`);
+      if (overMin>0) lines.push(`${oH%1===0?oH:oH.toFixed(2)}h × ${baseHourly}円 × ${overtimeRate} = ${Math.round(evRecs.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).overtime,0)).toLocaleString()}円`);
+      lines.push(`■TOTAL　${Math.round(wageTotal).toLocaleString()}円`, ``);
       const tr=expense.transport||[], tt=tr.reduce((s,t)=>s+(parseInt(t.amount)||0)*(parseInt(t.count)||1),0);
       lines.push(`■交通費　${tt.toLocaleString()}`);
       tr.forEach(t=>{
-        const lbl = (t.from||t.to) ? `${t.from||""}ↁE{t.to||""}` : (t.label||"");
+        const lbl = (t.from||t.to) ? `${t.from||""}→${t.to||""}` : (t.label||"");
         if(!lbl && !t.amount) return;
         const cnt = parseInt(t.count)||1;
         const amt = parseInt(t.amount)||0;
-        if(cnt>1) lines.push(`${lbl}　${amt}ÁE{cnt}�E�E{(amt*cnt).toLocaleString()}`);
+        if(cnt>1) lines.push(`${lbl}　${amt}×${cnt}＝${(amt*cnt).toLocaleString()}`);
         else lines.push(`${lbl}　${amt}`);
       });
       lines.push(``);
       const bathCnt = parseInt(expense.bathCount)||1;
       const bathAmt = parseInt(expense.bath||0);
       const bathTotalAmt = bathAmt * bathCnt;
-      if(bathCnt>1) lines.push(`■銭湯代　${bathAmt}ÁE{bathCnt}�E�E{bathTotalAmt.toLocaleString()}`, ``);
+      if(bathCnt>1) lines.push(`■銭湯代　${bathAmt}×${bathCnt}＝${bathTotalAmt.toLocaleString()}`, ``);
       else lines.push(`■銭湯代　${bathTotalAmt.toLocaleString()}`, ``);
       const supItems = expense.suppliesItems||[];
       const supTotal = supItems.reduce((s,x)=>(parseInt(x.amount)||0)*(parseInt(x.count)||1)+s,0);
       if(supItems.length>0&&supItems.some(x=>x.label||x.amount)){
         lines.push(`■備品　${supTotal.toLocaleString()}`);
-        supItems.forEach(x=>{ if(x.label||x.amount){ const sc=parseInt(x.count)||1,sa=parseInt(x.amount)||0; lines.push(sc>1?`${x.label}　${sa}ÁE{sc}�E�E{(sa*sc).toLocaleString()}`:`${x.label}　${sa}`); } });
+        supItems.forEach(x=>{ if(x.label||x.amount){ const sc=parseInt(x.count)||1,sa=parseInt(x.amount)||0; lines.push(sc>1?`${x.label}　${sa}×${sc}＝${(sa*sc).toLocaleString()}`:`${x.label}　${sa}`); } });
       } else { lines.push(`■備品　0`); }
       lines.push(``);
       const ac=expense.accommodation||[], at=ac.reduce((s,a)=>s+(parseInt(a.amount)||0),0);
@@ -176,11 +165,11 @@ function buildISO(dateStr, timeStr) {
       const bathTotalExp=(parseInt(expense.bath||0))*(parseInt(expense.bathCount)||1);
       const supTotalExp=(expense.suppliesItems||[]).reduce((s,x)=>(parseInt(x.amount)||0)*(parseInt(x.count)||1)+s,0);
       const grand=Math.round(wageTotal)+tt+bathTotalExp+supTotalExp+at;
-      lines.push(`◁EOTAL`,`給与計＋交通費�E�銭湯代�E�備品E��宿泊`,`${Math.round(wageTotal).toLocaleString()}�E�E{tt.toLocaleString()}�E�E{bathTotalExp.toLocaleString()}�E�E{supTotalExp.toLocaleString()}�E�E{at.toLocaleString()}�E�E{grand.toLocaleString()}`);
+      lines.push(`◆TOTAL`,`給与計＋交通費＋銭湯代＋備品＋宿泊`,`${Math.round(wageTotal).toLocaleString()}＋${tt.toLocaleString()}＋${bathTotalExp.toLocaleString()}＋${supTotalExp.toLocaleString()}＋${at.toLocaleString()}＝${grand.toLocaleString()}`);
       return lines.join("\n");
     }
 
-    const TABS = ["記録","イベンチE,"精算レポ�EチE,"月次"];
+    const TABS = ["記録","イベント","精算レポート","月次"];
     const IS = { background:"rgba(255,255,255,0.08)", border:"1px solid rgba(138,101,255,0.35)", borderRadius:8, padding:"8px 12px", color:"#fff", fontSize:14, boxSizing:"border-box", outline:"none", width:"100%" };
 
     // ─── WageBadge ────────────────────────────────────────────
@@ -189,7 +178,7 @@ function buildISO(dateStr, timeStr) {
       if (!workMin) return null;
       return (
         <div style={{background:"linear-gradient(135deg,rgba(34,211,165,0.15),rgba(251,191,36,0.1))",border:"1px solid rgba(34,211,165,0.3)",borderRadius:10,padding:"10px 14px",marginTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{fontSize:11,color:"#9b8fff",marginBottom:2}}>本日の給与（概算！E/div><div style={{fontSize:22,fontWeight:800,color:"#22d3a5"}}>{fmtYen(total)}</div></div>
+          <div><div style={{fontSize:11,color:"#9b8fff",marginBottom:2}}>本日の給与（概算）</div><div style={{fontSize:22,fontWeight:800,color:"#22d3a5"}}>{fmtYen(total)}</div></div>
           <div style={{fontSize:11,color:"#9b8fff",textAlign:"right",lineHeight:1.8}}><div>通常 {normalHours.toFixed(1)}h</div>{overHours>0&&<div style={{color:"#fbbf24"}}>残業 {overHours.toFixed(1)}h</div>}</div>
         </div>
       );
@@ -208,8 +197,8 @@ function buildISO(dateStr, timeStr) {
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
           <div style={{background:"linear-gradient(160deg,#1e1a3a,#2a2250)",border:"1px solid rgba(138,101,255,0.4)",borderRadius:20,padding:24,width:"100%",maxWidth:420,maxHeight:"88vh",overflowY:"auto"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-              <div><div style={{fontSize:16,fontWeight:800}}>{fmtDate(dateStr)} の編雁E/div>{eventName&&<div style={{fontSize:12,color:"#9b8fff",marginTop:2}}>📍 {eventName}</div>}</div>
-              <button onClick={onClose} style={{background:"none",border:"none",color:"#9b8fff",fontSize:22,cursor:"pointer"}}>✁E/button>
+              <div><div style={{fontSize:16,fontWeight:800}}>{fmtDate(dateStr)} の編集</div>{eventName&&<div style={{fontSize:12,color:"#9b8fff",marginTop:2}}>📍 {eventName}</div>}</div>
+              <button onClick={onClose} style={{background:"none",border:"none",color:"#9b8fff",fontSize:22,cursor:"pointer"}}>✕</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
               {[["🟢 出勤",ci,setCi],["🔴 退勤",co,setCo]].map(([label,val,set])=>(
@@ -218,34 +207,34 @@ function buildISO(dateStr, timeStr) {
             </div>
             <div style={{marginBottom:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>休�E</div>
-                <button onClick={()=>setBreaks(p=>[...p,{start:"",end:""}])} style={{background:"rgba(251,191,36,0.2)",border:"1px solid rgba(251,191,36,0.4)",color:"#fbbf24",borderRadius:6,padding:"4px 10px",fontSize:12,cursor:"pointer"}}>�E�E追加</button>
+                <div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>休憩</div>
+                <button onClick={()=>setBreaks(p=>[...p,{start:"",end:""}])} style={{background:"rgba(251,191,36,0.2)",border:"1px solid rgba(251,191,36,0.4)",color:"#fbbf24",borderRadius:6,padding:"4px 10px",fontSize:12,cursor:"pointer"}}>＋ 追加</button>
               </div>
               {breaks.map((b,i)=>(
                 <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
                   <input type="time" value={b.start} onChange={e=>setBreaks(p=>p.map((x,j)=>j===i?{...x,start:e.target.value}:x))} style={{...IS,flex:1}} />
-                  <span style={{color:"#9b8fff",fontSize:12}}>、E/span>
+                  <span style={{color:"#9b8fff",fontSize:12}}>〜</span>
                   <input type="time" value={b.end} onChange={e=>setBreaks(p=>p.map((x,j)=>j===i?{...x,end:e.target.value}:x))} style={{...IS,flex:1}} />
-                  <button onClick={()=>setBreaks(p=>p.filter((_,j)=>j!==i))} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"6px 8px",cursor:"pointer",fontSize:13}}>✁E/button>
+                  <button onClick={()=>setBreaks(p=>p.filter((_,j)=>j!==i))} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"6px 8px",cursor:"pointer",fontSize:13}}>✕</button>
                 </div>
               ))}
-              {breaks.length===0&&<div style={{fontSize:12,color:"#5a5070"}}>休�EなぁE/div>}
+              {breaks.length===0&&<div style={{fontSize:12,color:"#5a5070"}}>休憩なし</div>}
             </div>
             {pw>0&&(
               <div style={{background:"rgba(34,211,165,0.08)",border:"1px solid rgba(34,211,165,0.25)",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
-                <div style={{fontSize:11,color:"#9b8fff",marginBottom:6}}>給与�Eレビュー</div>
+                <div style={{fontSize:11,color:"#9b8fff",marginBottom:6}}>給与プレビュー</div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div style={{fontSize:20,fontWeight:800,color:"#22d3a5"}}>{fmtYen(pwage.total)}</div>
-                  <div style={{fontSize:11,color:"#9b8fff",textAlign:"right",lineHeight:1.8}}><div>勤勁E{fmtMin(pw)}</div>{pwage.overHours>0&&<div style={{color:"#fbbf24"}}>残業 {pwage.overHours.toFixed(1)}h</div>}</div>
+                  <div style={{fontSize:11,color:"#9b8fff",textAlign:"right",lineHeight:1.8}}><div>勤務 {fmtMin(pw)}</div>{pwage.overHours>0&&<div style={{color:"#fbbf24"}}>残業 {pwage.overHours.toFixed(1)}h</div>}</div>
                 </div>
               </div>
             )}
             <div style={{marginBottom:20}}>
               <div style={{fontSize:11,color:"#9b8fff",marginBottom:5}}>メモ</div>
-              <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="備老E�Eメモ�E�任意！E style={{...IS,resize:"vertical",fontFamily:"inherit"}} />
+              <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="備考・メモ（任意）" style={{...IS,resize:"vertical",fontFamily:"inherit"}} />
             </div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>onSave({clockIn:ci?buildISO(dateStr,ci):null,clockOut:co?buildISO(dateStr,co):null,breaks:breaks.filter(b=>b.start).map(b=>({start:buildISO(dateStr,b.start),end:b.end?buildISO(dateStr,b.end):null})),note})} style={{flex:1,background:"rgba(138,101,255,0.8)",border:"none",color:"#fff",borderRadius:12,padding:13,fontSize:14,fontWeight:700,cursor:"pointer"}}>保孁E/button>
+              <button onClick={()=>onSave({clockIn:ci?buildISO(dateStr,ci):null,clockOut:co?buildISO(dateStr,co):null,breaks:breaks.filter(b=>b.start).map(b=>({start:buildISO(dateStr,b.start),end:b.end?buildISO(dateStr,b.end):null})),note})} style={{flex:1,background:"rgba(138,101,255,0.8)",border:"none",color:"#fff",borderRadius:12,padding:13,fontSize:14,fontWeight:700,cursor:"pointer"}}>保存</button>
               {rec&&<button onClick={onDelete} style={{background:"rgba(248,113,113,0.15)",border:"1px solid rgba(248,113,113,0.4)",color:"#f87171",borderRadius:12,padding:"13px 16px",fontSize:13,cursor:"pointer"}}>削除</button>}
             </div>
           </div>
@@ -263,19 +252,19 @@ function buildISO(dateStr, timeStr) {
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
           <div style={{background:"linear-gradient(160deg,#1e1a3a,#2a2250)",border:"1px solid rgba(34,211,165,0.35)",borderRadius:20,padding:24,width:"100%",maxWidth:380}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontSize:16,fontWeight:800}}>💰 時給設宁E/div>
-              <button onClick={onClose} style={{background:"none",border:"none",color:"#9b8fff",fontSize:22,cursor:"pointer"}}>✁E/button>
+              <div style={{fontSize:16,fontWeight:800}}>💰 時給設定</div>
+              <button onClick={onClose} style={{background:"none",border:"none",color:"#9b8fff",fontSize:22,cursor:"pointer"}}>✕</button>
             </div>
-            {[["基本時給�E��E�E�E,bh,setBh,"侁E 1400"],["通常時間の上限�E�時間！E,th,setTh,"侁E 8"],["残業の割増率",or,setOr,"侁E 1.25"]].map(([label,val,set,ph])=>(
+            {[["基本時給（円）",bh,setBh,"例: 1400"],["通常時間の上限（時間）",th,setTh,"例: 8"],["残業の割増率",or,setOr,"例: 1.25"]].map(([label,val,set,ph])=>(
               <div key={label} style={{marginBottom:14}}><div style={{fontSize:11,color:"#9b8fff",marginBottom:5}}>{label}</div><input type="number" value={val} onChange={e=>set(e.target.value)} placeholder={ph} style={IS} step="0.01" /></div>
             ))}
             <div style={{background:"rgba(34,211,165,0.08)",border:"1px solid rgba(34,211,165,0.2)",borderRadius:10,padding:"12px 14px",marginBottom:18,fontSize:12,color:"#9b8fff",lineHeight:1.9}}>
-              <div style={{fontWeight:700,color:"#c4b5ff",marginBottom:4}}>計算侁E/div>
-              <div>通常 {th}h ↁE<span style={{color:"#22d3a5"}}>{fmtYen(ex)}</span></div>
-              <div>残業 1h追加 ↁE<span style={{color:"#fbbf24"}}>+{fmtYen(exO)}</span></div>
-              <div>合訁EↁE<span style={{color:"#22d3a5",fontWeight:700}}>{fmtYen(ex+exO)}</span></div>
+              <div style={{fontWeight:700,color:"#c4b5ff",marginBottom:4}}>計算例</div>
+              <div>通常 {th}h → <span style={{color:"#22d3a5"}}>{fmtYen(ex)}</span></div>
+              <div>残業 1h追加 → <span style={{color:"#fbbf24"}}>+{fmtYen(exO)}</span></div>
+              <div>合計 → <span style={{color:"#22d3a5",fontWeight:700}}>{fmtYen(ex+exO)}</span></div>
             </div>
-            <button onClick={()=>onSave({baseHourly:parseFloat(bh)||1400,thresholdHours:parseFloat(th)||8,overtimeRate:parseFloat(or)||1.25})} style={{width:"100%",background:"rgba(34,211,165,0.7)",border:"none",color:"#fff",borderRadius:12,padding:13,fontSize:14,fontWeight:700,cursor:"pointer"}}>保孁E/button>
+            <button onClick={()=>onSave({baseHourly:parseFloat(bh)||1400,thresholdHours:parseFloat(th)||8,overtimeRate:parseFloat(or)||1.25})} style={{width:"100%",background:"rgba(34,211,165,0.7)",border:"none",color:"#fff",borderRadius:12,padding:13,fontSize:14,fontWeight:700,cursor:"pointer"}}>保存</button>
           </div>
         </div>
       );
@@ -307,8 +296,8 @@ function buildISO(dateStr, timeStr) {
       async function copyReport() { try{await navigator.clipboard.writeText(reportText);setCopied(true);setTimeout(()=>setCopied(false),2000);}catch{} }
 
       function saveRouteToMaster(t) {
-        const key = `${t.from||""}ↁE{t.to||""}`;
-        if(!key||key==="ↁE) return;
+        const key = `${t.from||""}→${t.to||""}`;
+        if(!key||key==="→") return;
         const exists = routeMaster.some(r=>r.from===t.from&&r.to===t.to);
         if(!exists) setRouteMaster(prev=>[...prev,{from:t.from||"",to:t.to||"",amount:t.amount||""}]);
       }
@@ -330,10 +319,10 @@ function buildISO(dateStr, timeStr) {
       const ss = { background:"rgba(255,255,255,0.04)", borderRadius:16, padding:"16px 18px", marginBottom:14, border:"1px solid rgba(255,255,255,0.07)" };
       return (
         <div>
-          <div style={{marginBottom:14}}><div style={{fontSize:11,color:"#9b8fff",marginBottom:5}}>あなた�E名前</div><input value={userName} onChange={e=>setUserName(e.target.value)} placeholder="例：石亁E亜希孁E style={IS} /></div>
-          <div style={{marginBottom:14}}><div style={{fontSize:11,color:"#9b8fff",marginBottom:5}}>精算するイベンチE/div>
+          <div style={{marginBottom:14}}><div style={{fontSize:11,color:"#9b8fff",marginBottom:5}}>あなたの名前</div><input value={userName} onChange={e=>setUserName(e.target.value)} placeholder="例：石井 亜希子" style={IS} /></div>
+          <div style={{marginBottom:14}}><div style={{fontSize:11,color:"#9b8fff",marginBottom:5}}>精算するイベント</div>
             {events.length===0?<div style={{fontSize:13,color:"#5a5070"}}>まずイベントを登録してください</div>
-              :<select value={selEvId} onChange={e=>setSelEvId(e.target.value)} style={{...IS,cursor:"pointer"}}>{events.map(e=><option key={e.id} value={e.id} style={{background:"#1e1a3a"}}>{e.name}�E�{e.store}</option>)}</select>}
+              :<select value={selEvId} onChange={e=>setSelEvId(e.target.value)} style={{...IS,cursor:"pointer"}}>{events.map(e=><option key={e.id} value={e.id} style={{background:"#1e1a3a"}}>{e.name}｜{e.store}</option>)}</select>}
           </div>
           {ev&&<>
             <div style={{...ss,border:"1px solid rgba(138,101,255,0.2)"}}>
@@ -343,12 +332,12 @@ function buildISO(dateStr, timeStr) {
                   const dp=key.includes("_")?key.split("_")[1]:key;
                   const d=new Date(dp+"T00:00:00"); const md=`${d.getMonth()+1}/${d.getDate()}`;
                   const wm=calcWork(rec); const bm=(rec.breaks||[]).reduce((s,b)=>b.start&&b.end?s+(new Date(b.end)-new Date(b.start))/60000:s,0);
-                  return <div key={key} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}><span style={{color:"#c4b5ff"}}>{md}</span><span>{fmtTime(rec.clockIn)}〜{fmtTime(rec.clockOut)}</span><span style={{color:"#9b8fff"}}>{bm>0?`${Math.round(bm)}刁E���E`:"休�EなぁE}</span><span style={{color:"#22d3a5",fontWeight:700}}>{toDecH(wm)}</span></div>;
+                  return <div key={key} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}><span style={{color:"#c4b5ff"}}>{md}</span><span>{fmtTime(rec.clockIn)}〜{fmtTime(rec.clockOut)}</span><span style={{color:"#9b8fff"}}>{bm>0?`${Math.round(bm)}分休憩`:"休憩なし"}</span><span style={{color:"#22d3a5",fontWeight:700}}>{toDecH(wm)}</span></div>;
                 })}
-              {evRecs.length>0&&<div style={{marginTop:10,display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700}}><span>合訁E/span><span style={{color:"#22d3a5"}}>{toDecH(evRecs.reduce((s,[,r])=>s+calcWork(r),0))}</span><span style={{color:"#22d3a5"}}>{fmtYen(Math.round(wt))}</span></div>}
+              {evRecs.length>0&&<div style={{marginTop:10,display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700}}><span>合計</span><span style={{color:"#22d3a5"}}>{toDecH(evRecs.reduce((s,[,r])=>s+calcWork(r),0))}</span><span style={{color:"#22d3a5"}}>{fmtYen(Math.round(wt))}</span></div>}
             </div>
             <div style={ss}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>交通費</div><div style={{fontSize:14,fontWeight:700,color:"#c4b5ff"}}>{tt.toLocaleString()}冁E/div></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>交通費</div><div style={{fontSize:14,fontWeight:700,color:"#c4b5ff"}}>{tt.toLocaleString()}円</div></div>
               {transport.map((t,i)=>{
                 const tAmt=parseInt(t.amount)||0, tCnt=parseInt(t.count)||1, tSub=tAmt*tCnt;
                 const moveUp=()=>{ if(i===0) return; const a=[...transport]; [a[i-1],a[i]]=[a[i],a[i-1]]; setRpt({transport:a}); };
@@ -361,32 +350,32 @@ function buildISO(dateStr, timeStr) {
                         <button onClick={moveDown} disabled={i===transport.length-1} style={{background:"rgba(255,255,255,0.08)",border:"none",color:i===transport.length-1?"#444":"#c4b5ff",borderRadius:4,padding:"2px 5px",cursor:i===transport.length-1?"default":"pointer",fontSize:10,lineHeight:1}}>▼</button>
                       </div>
                       <input value={t.from||""} onChange={e=>setRpt({transport:transport.map((x,j)=>j===i?{...x,from:e.target.value}:x)})} placeholder="出発地" style={{...IS,flex:1,minWidth:50,fontSize:12,padding:"8px 6px"}} />
-                      <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>ↁE/span>
+                      <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>→</span>
                       <input value={t.to||""} onChange={e=>setRpt({transport:transport.map((x,j)=>j===i?{...x,to:e.target.value}:x)})} placeholder="到着地" style={{...IS,flex:1,minWidth:50,fontSize:12,padding:"8px 6px"}} />
-                      <input value={t.amount||""} onChange={e=>setRpt({transport:transport.map((x,j)=>j===i?{...x,amount:e.target.value}:x)})} placeholder="金顁E type="number" style={{...IS,width:55,flex:"none",fontSize:12,padding:"8px 4px"}} />
-                      <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>ÁE/span>
-                      <input value={t.count||""} onChange={e=>setRpt({transport:transport.map((x,j)=>j===i?{...x,count:e.target.value}:x)})} placeholder="囁E type="number" style={{...IS,width:38,flex:"none",fontSize:12,padding:"8px 4px"}} />
-                      <button onClick={()=>saveRouteToMaster(t)} title="よく使ぁE��ートに登録" style={{background:"rgba(34,211,165,0.15)",border:"none",color:"#22d3a5",borderRadius:6,padding:"7px 6px",cursor:"pointer",fontSize:11,flexShrink:0}}>⭁E/button>
-                      <button onClick={()=>setRpt({transport:transport.filter((_,j)=>j!==i)})} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"7px 7px",cursor:"pointer",fontSize:13,flexShrink:0}}>✁E/button>
+                      <input value={t.amount||""} onChange={e=>setRpt({transport:transport.map((x,j)=>j===i?{...x,amount:e.target.value}:x)})} placeholder="金額" type="number" style={{...IS,width:55,flex:"none",fontSize:12,padding:"8px 4px"}} />
+                      <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>×</span>
+                      <input value={t.count||""} onChange={e=>setRpt({transport:transport.map((x,j)=>j===i?{...x,count:e.target.value}:x)})} placeholder="回" type="number" style={{...IS,width:38,flex:"none",fontSize:12,padding:"8px 4px"}} />
+                      <button onClick={()=>saveRouteToMaster(t)} title="よく使うルートに登録" style={{background:"rgba(34,211,165,0.15)",border:"none",color:"#22d3a5",borderRadius:6,padding:"7px 6px",cursor:"pointer",fontSize:11,flexShrink:0}}>⭐</button>
+                      <button onClick={()=>setRpt({transport:transport.filter((_,j)=>j!==i)})} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"7px 7px",cursor:"pointer",fontSize:13,flexShrink:0}}>✕</button>
                     </div>
-                    {tAmt>0&&tCnt>1&&<div style={{fontSize:11,color:"#22d3a5",textAlign:"right",marginTop:3}}>{tAmt}×{tCnt}�E�{tSub.toLocaleString()}冁E/div>}
+                    {tAmt>0&&tCnt>1&&<div style={{fontSize:11,color:"#22d3a5",textAlign:"right",marginTop:3}}>{tAmt}×{tCnt}＝{tSub.toLocaleString()}円</div>}
                   </div>
                 );
               })}
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
-                <button onClick={()=>setRpt({transport:[...transport,{from:"",to:"",amount:"",count:""}]})} style={{background:"rgba(138,101,255,0.2)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>�E�E追加</button>
-                {routeMaster.length>0&&<button onClick={()=>setShowRoutes(v=>!v)} style={{background:"rgba(34,211,165,0.15)",border:"1px solid rgba(34,211,165,0.3)",color:"#22d3a5",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>⭁Eよく使ぁE��ーチE/button>}
-                {prevEvents.length>0&&<button onClick={()=>setShowCopyPrev(v=>!v)} style={{background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.3)",color:"#fbbf24",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>📋 前回からコピ�E</button>}
+                <button onClick={()=>setRpt({transport:[...transport,{from:"",to:"",amount:"",count:""}]})} style={{background:"rgba(138,101,255,0.2)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>＋ 追加</button>
+                {routeMaster.length>0&&<button onClick={()=>setShowRoutes(v=>!v)} style={{background:"rgba(34,211,165,0.15)",border:"1px solid rgba(34,211,165,0.3)",color:"#22d3a5",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>⭐ よく使うルート</button>}
+                {prevEvents.length>0&&<button onClick={()=>setShowCopyPrev(v=>!v)} style={{background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.3)",color:"#fbbf24",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>📋 前回からコピー</button>}
               </div>
               {showRoutes&&(
                 <div style={{background:"rgba(34,211,165,0.06)",border:"1px solid rgba(34,211,165,0.2)",borderRadius:12,padding:"12px 14px",marginTop:10}}>
-                  <div style={{fontSize:11,color:"#22d3a5",marginBottom:8,fontWeight:700}}>⭁Eよく使ぁE��ーチE/div>
+                  <div style={{fontSize:11,color:"#22d3a5",marginBottom:8,fontWeight:700}}>⭐ よく使うルート</div>
                   {routeMaster.map((r,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
                       <div style={{fontSize:13}}>{r.from}→{r.to} <span style={{color:"#9b8fff",fontSize:11}}>¥{r.amount}</span></div>
                       <div style={{display:"flex",gap:6}}>
                         <button onClick={()=>applyRoute(r)} style={{background:"rgba(34,211,165,0.3)",border:"none",color:"#fff",borderRadius:6,padding:"4px 10px",fontSize:12,cursor:"pointer"}}>追加</button>
-                        <button onClick={()=>deleteRoute(i)} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"4px 8px",fontSize:12,cursor:"pointer"}}>✁E/button>
+                        <button onClick={()=>deleteRoute(i)} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"4px 8px",fontSize:12,cursor:"pointer"}}>✕</button>
                       </div>
                     </div>
                   ))}
@@ -394,24 +383,24 @@ function buildISO(dateStr, timeStr) {
               )}
               {showCopyPrev&&(
                 <div style={{background:"rgba(251,191,36,0.06)",border:"1px solid rgba(251,191,36,0.2)",borderRadius:12,padding:"12px 14px",marginTop:10}}>
-                  <div style={{fontSize:11,color:"#fbbf24",marginBottom:8,fontWeight:700}}>📋 どのイベントからコピ�Eしますか�E�E/div>
+                  <div style={{fontSize:11,color:"#fbbf24",marginBottom:8,fontWeight:700}}>📋 どのイベントからコピーしますか？</div>
                   {prevEvents.map(e=>(
                     <button key={e.id} onClick={()=>copyFromPrev(e.id)} style={{display:"block",width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#c4b5ff",borderRadius:8,padding:"8px 12px",fontSize:13,cursor:"pointer",marginBottom:6,textAlign:"left"}}>
-                      {e.name}�E�{e.store}
+                      {e.name}｜{e.store}
                     </button>
                   ))}
                 </div>
               )}
             </div>
             <div style={ss}>
-              <div style={{fontSize:11,color:"#9b8fff",letterSpacing:2,marginBottom:10}}>そ�E他費用</div>
+              <div style={{fontSize:11,color:"#9b8fff",letterSpacing:2,marginBottom:10}}>その他費用</div>
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:11,color:"#9b8fff",marginBottom:5}}>銭湯代</div>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  <input type="number" value={rpt.bath||""} onChange={e=>setRpt({bath:e.target.value})} placeholder="金額（�E�E�E style={{...IS,flex:1}} />
-                  <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>ÁE/span>
+                  <input type="number" value={rpt.bath||""} onChange={e=>setRpt({bath:e.target.value})} placeholder="金額（円）" style={{...IS,flex:1}} />
+                  <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>×</span>
                   <input type="number" value={rpt.bathCount||""} onChange={e=>setRpt({bathCount:e.target.value})} placeholder="日数" style={{...IS,width:60,flex:"none",fontSize:13}} />
-                  <span style={{color:"#9b8fff",fontSize:12,flexShrink:0,whiteSpace:"nowrap"}}>= {((parseInt(rpt.bath)||0)*(parseInt(rpt.bathCount)||1)).toLocaleString()}冁E/span>
+                  <span style={{color:"#9b8fff",fontSize:12,flexShrink:0,whiteSpace:"nowrap"}}>= {((parseInt(rpt.bath)||0)*(parseInt(rpt.bathCount)||1)).toLocaleString()}円</span>
                 </div>
               </div>
               <div>
@@ -423,44 +412,44 @@ function buildISO(dateStr, timeStr) {
                     <div key={i} style={{marginBottom:6}}>
                       <div style={{display:"flex",gap:5,alignItems:"center"}}>
                         <input value={s.label||""} onChange={e=>setRpt({suppliesItems:items.map((x,j)=>j===i?{...x,label:e.target.value}:x)})} placeholder="品名" style={{...IS,flex:2,fontSize:12,padding:"8px 6px"}} />
-                        <input value={s.amount||""} onChange={e=>setRpt({suppliesItems:items.map((x,j)=>j===i?{...x,amount:e.target.value}:x)})} placeholder="金顁E type="number" style={{...IS,width:58,flex:"none",fontSize:12,padding:"8px 5px"}} />
-                        <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>ÁE/span>
-                        <input value={s.count||""} onChange={e=>setRpt({suppliesItems:items.map((x,j)=>j===i?{...x,count:e.target.value}:x)})} placeholder="倁E type="number" style={{...IS,width:40,flex:"none",fontSize:12,padding:"8px 4px"}} />
-                        <button onClick={()=>setRpt({suppliesItems:items.filter((_,j)=>j!==i)})} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"7px 8px",cursor:"pointer",fontSize:13,flexShrink:0}}>✁E/button>
+                        <input value={s.amount||""} onChange={e=>setRpt({suppliesItems:items.map((x,j)=>j===i?{...x,amount:e.target.value}:x)})} placeholder="金額" type="number" style={{...IS,width:58,flex:"none",fontSize:12,padding:"8px 5px"}} />
+                        <span style={{color:"#9b8fff",fontSize:13,flexShrink:0}}>×</span>
+                        <input value={s.count||""} onChange={e=>setRpt({suppliesItems:items.map((x,j)=>j===i?{...x,count:e.target.value}:x)})} placeholder="個" type="number" style={{...IS,width:40,flex:"none",fontSize:12,padding:"8px 4px"}} />
+                        <button onClick={()=>setRpt({suppliesItems:items.filter((_,j)=>j!==i)})} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"7px 8px",cursor:"pointer",fontSize:13,flexShrink:0}}>✕</button>
                       </div>
-                      {sAmt>0&&sCnt>1&&<div style={{fontSize:11,color:"#22d3a5",textAlign:"right",marginTop:3}}>{sAmt}×{sCnt}�E�{sSub.toLocaleString()}冁E/div>}
+                      {sAmt>0&&sCnt>1&&<div style={{fontSize:11,color:"#22d3a5",textAlign:"right",marginTop:3}}>{sAmt}×{sCnt}＝{sSub.toLocaleString()}円</div>}
                     </div>
                   );
                 })}
-                <button onClick={()=>setRpt({suppliesItems:[...(rpt.suppliesItems||[{label:"",amount:"",count:""}]),{label:"",amount:"",count:""}]})} style={{background:"rgba(138,101,255,0.2)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer",marginTop:4}}>�E�E追加</button>
+                <button onClick={()=>setRpt({suppliesItems:[...(rpt.suppliesItems||[{label:"",amount:"",count:""}]),{label:"",amount:"",count:""}]})} style={{background:"rgba(138,101,255,0.2)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer",marginTop:4}}>＋ 追加</button>
               </div>
             </div>
             <div style={ss}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>宿泊費</div><div style={{fontSize:14,fontWeight:700,color:"#c4b5ff"}}>{at.toLocaleString()}冁E/div></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>宿泊費</div><div style={{fontSize:14,fontWeight:700,color:"#c4b5ff"}}>{at.toLocaleString()}円</div></div>
               {accom.map((a,i)=>(
                 <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                  <input value={a.label} onChange={e=>setRpt({accommodation:accom.map((x,j)=>j===i?{...x,label:e.target.value}:x)})} placeholder="例：○○�EチE��" style={{...IS,flex:2}} />
-                  <input value={a.amount} onChange={e=>setRpt({accommodation:accom.map((x,j)=>j===i?{...x,amount:e.target.value}:x)})} placeholder="金顁E type="number" style={{...IS,flex:1}} />
-                  <button onClick={()=>setRpt({accommodation:accom.filter((_,j)=>j!==i)})} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"7px 9px",cursor:"pointer",fontSize:13}}>✁E/button>
+                  <input value={a.label} onChange={e=>setRpt({accommodation:accom.map((x,j)=>j===i?{...x,label:e.target.value}:x)})} placeholder="例：○○ホテル" style={{...IS,flex:2}} />
+                  <input value={a.amount} onChange={e=>setRpt({accommodation:accom.map((x,j)=>j===i?{...x,amount:e.target.value}:x)})} placeholder="金額" type="number" style={{...IS,flex:1}} />
+                  <button onClick={()=>setRpt({accommodation:accom.filter((_,j)=>j!==i)})} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#f87171",borderRadius:6,padding:"7px 9px",cursor:"pointer",fontSize:13}}>✕</button>
                 </div>
               ))}
-              <button onClick={()=>setRpt({accommodation:[...accom,{label:"",amount:""}]})} style={{background:"rgba(138,101,255,0.2)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>�E�E追加</button>
+              <button onClick={()=>setRpt({accommodation:[...accom,{label:"",amount:""}]})} style={{background:"rgba(138,101,255,0.2)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>＋ 追加</button>
             </div>
             <div style={{background:"linear-gradient(135deg,rgba(34,211,165,0.12),rgba(138,101,255,0.1))",border:"1px solid rgba(34,211,165,0.35)",borderRadius:16,padding:"16px 18px",marginBottom:14}}>
-              <div style={{fontSize:11,color:"#9b8fff",marginBottom:10,letterSpacing:2}}>◁ETOTAL 合訁E/div>
-              {[["給丁E,"#22d3a5",Math.round(wt)],["交通費","#c4b5ff",tt],["銭湯代","#c4b5ff",bathTotal],["備品","#c4b5ff",suppliesTotal],["宿況E,"#c4b5ff",at]].map(([label,col,val])=>(
-                <div key={label} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"3px 0"}}><span style={{color:"#9b8fff"}}>{label}</span><span style={{color:col}}>{val.toLocaleString()}冁E/span></div>
+              <div style={{fontSize:11,color:"#9b8fff",marginBottom:10,letterSpacing:2}}>◆ TOTAL 合計</div>
+              {[["給与","#22d3a5",Math.round(wt)],["交通費","#c4b5ff",tt],["銭湯代","#c4b5ff",bathTotal],["備品","#c4b5ff",suppliesTotal],["宿泊","#c4b5ff",at]].map(([label,col,val])=>(
+                <div key={label} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"3px 0"}}><span style={{color:"#9b8fff"}}>{label}</span><span style={{color:col}}>{val.toLocaleString()}円</span></div>
               ))}
-              <div style={{borderTop:"1px solid rgba(255,255,255,0.1)",marginTop:10,paddingTop:10,display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:800,fontSize:15}}>請求合訁E/span><span style={{fontWeight:800,fontSize:20,color:"#22d3a5"}}>{grand.toLocaleString()}冁E/span></div>
+              <div style={{borderTop:"1px solid rgba(255,255,255,0.1)",marginTop:10,paddingTop:10,display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:800,fontSize:15}}>請求合計</span><span style={{fontWeight:800,fontSize:20,color:"#22d3a5"}}>{grand.toLocaleString()}円</span></div>
             </div>
             <div style={ss}>
-              <div style={{fontSize:11,color:"#9b8fff",marginBottom:5,letterSpacing:2}}>メモ・備老E/div>
-              <textarea value={rpt.memo||""} onChange={e=>setRpt({memo:e.target.value})} rows={2} placeholder="特記事頁E��あれば�E�報告テキストには含まれません�E�E style={{...IS,resize:"vertical",fontFamily:"inherit",fontSize:13}} />
+              <div style={{fontSize:11,color:"#9b8fff",marginBottom:5,letterSpacing:2}}>メモ・備考</div>
+              <textarea value={rpt.memo||""} onChange={e=>setRpt({memo:e.target.value})} rows={2} placeholder="特記事項があれば（報告テキストには含まれません）" style={{...IS,resize:"vertical",fontFamily:"inherit",fontSize:13}} />
             </div>
             <div style={{background:"rgba(0,0,0,0.3)",borderRadius:14,padding:"14px 16px",marginBottom:14,border:"1px solid rgba(255,255,255,0.08)"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>報告テキスチE/div>
-                <button onClick={copyReport} style={{background:copied?"rgba(34,211,165,0.4)":"rgba(138,101,255,0.6)",border:"none",color:"#fff",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{copied?"✁Eコピ�E済！E:"📋 コピ�E"}</button>
+                <div style={{fontSize:11,color:"#9b8fff",letterSpacing:2}}>報告テキスト</div>
+                <button onClick={copyReport} style={{background:copied?"rgba(34,211,165,0.4)":"rgba(138,101,255,0.6)",border:"none",color:"#fff",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{copied?"✓ コピー済！":"📋 コピー"}</button>
               </div>
               <div style={{fontSize:11,color:"#d0c8ff",lineHeight:1.9,fontFamily:"'Noto Sans JP',monospace"}}>
                 {reportText.split("\n").map((line,i)=>{
@@ -470,10 +459,10 @@ function buildISO(dateStr, timeStr) {
                     /^■交通費/.test(line) ||
                     /^■銭湯代/.test(line) ||
                     /^■備品/.test(line) ||
-                    /^■宿況E.test(line) ||
-                    /^◁EOTAL/.test(line) ||
-                    /^給与計！E.test(line) ||
-                    /^[\d,]+�E�[\d,]+�E�E.test(line);
+                    /^■宿泊/.test(line) ||
+                    /^◆TOTAL/.test(line) ||
+                    /^給与計＋/.test(line) ||
+                    /^[\d,]+＋[\d,]+＋/.test(line);
                   return (
                     <div key={i} style={{
                       fontWeight: isBold ? 800 : 400,
@@ -506,24 +495,24 @@ function buildISO(dateStr, timeStr) {
       const rec = data[recKey]||null;
       const wm = calcWork(rec);
       const weeks = []; for (let w=0;w<5;w++) weeks.push(days.slice(w*7,w*7+7));
-      const DOW = ["日","朁E,"火","水","木","釁E,"圁E];
+      const DOW = ["日","月","火","水","木","金","土"];
       return (
         <div style={{background:"rgba(255,255,255,0.04)",borderRadius:18,padding:18,border:"1px solid rgba(255,255,255,0.08)"}}>
-          <div style={{fontSize:11,color:"#9b8fff",letterSpacing:3,marginBottom:14}}>日付を選んで記録・編雁E/div>
+          <div style={{fontSize:11,color:"#9b8fff",letterSpacing:3,marginBottom:14}}>日付を選んで記録・編集</div>
           <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"#9b8fff",marginBottom:8}}>日付を直接入劁E/div>
+            <div style={{fontSize:11,color:"#9b8fff",marginBottom:8}}>日付を直接入力</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <input value={manualY} onChange={e=>setManualY(e.target.value)} onBlur={applyManual} maxLength={4} style={{...IS,width:64,textAlign:"center",padding:"8px 6px"}} />
               <span style={{color:"#9b8fff"}}>年</span>
               <input value={manualM} onChange={e=>setManualM(e.target.value)} onBlur={applyManual} maxLength={2} style={{...IS,width:44,textAlign:"center",padding:"8px 4px"}} />
-              <span style={{color:"#9b8fff"}}>朁E/span>
+              <span style={{color:"#9b8fff"}}>月</span>
               <input value={manualD} onChange={e=>setManualD(e.target.value)} onBlur={applyManual} maxLength={2} style={{...IS,width:44,textAlign:"center",padding:"8px 4px"}} />
               <span style={{color:"#9b8fff"}}>日</span>
-              <button onClick={applyManual} style={{background:"rgba(138,101,255,0.5)",border:"none",color:"#fff",borderRadius:8,padding:"8px 14px",fontSize:13,cursor:"pointer",fontWeight:700}}>ↁE/button>
+              <button onClick={applyManual} style={{background:"rgba(138,101,255,0.5)",border:"none",color:"#fff",borderRadius:8,padding:"8px 14px",fontSize:13,cursor:"pointer",fontWeight:700}}>→</button>
             </div>
           </div>
           <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"#9b8fff",marginBottom:8}}>カレンダーから選ぶ�E�直迁E週�E�E/div>
+            <div style={{fontSize:11,color:"#9b8fff",marginBottom:8}}>カレンダーから選ぶ（直近5週）</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
               {DOW.map((d,i)=><div key={d} style={{textAlign:"center",fontSize:10,color:i===0?"#f87171":i===6?"#60a5fa":"#9b8fff",fontWeight:700,padding:"2px 0"}}>{d}</div>)}
             </div>
@@ -545,10 +534,10 @@ function buildISO(dateStr, timeStr) {
           </div>
           <div style={{background:"rgba(255,255,255,0.06)",borderRadius:14,padding:"14px 16px",border:rec?"1px solid rgba(34,211,165,0.3)":"1px solid rgba(138,101,255,0.25)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:rec?10:0}}>
-              <div><div style={{fontSize:13,fontWeight:700}}>{fmtDate(selected)}</div>{!rec&&<div style={{fontSize:12,color:"#5a5070",marginTop:2}}>記録なぁE/div>}</div>
-              <button onClick={()=>openEdit(selected,selectedEvent?.id)} style={{background:rec?"rgba(138,101,255,0.4)":"rgba(138,101,255,0.7)",border:"none",color:"#fff",borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{rec?"✏︁E編雁E:"�E�E記録する"}</button>
+              <div><div style={{fontSize:13,fontWeight:700}}>{fmtDate(selected)}</div>{!rec&&<div style={{fontSize:12,color:"#5a5070",marginTop:2}}>記録なし</div>}</div>
+              <button onClick={()=>openEdit(selected,selectedEvent?.id)} style={{background:rec?"rgba(138,101,255,0.4)":"rgba(138,101,255,0.7)",border:"none",color:"#fff",borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{rec?"✏️ 編集":"＋ 記録する"}</button>
             </div>
-            {rec&&<div style={{display:"flex",gap:12,fontSize:13,flexWrap:"wrap",alignItems:"center"}}><span>🟢 {fmtTime(rec.clockIn)}</span><span>🔴 {fmtTime(rec.clockOut)}</span><span style={{color:"#c4b5ff"}}>訁E{fmtMin(wm)}</span>{wm>0&&<span style={{color:"#22d3a5",fontWeight:700}}>{fmtYen(calcWage(wm,wage).total)}</span>}</div>}
+            {rec&&<div style={{display:"flex",gap:12,fontSize:13,flexWrap:"wrap",alignItems:"center"}}><span>🟢 {fmtTime(rec.clockIn)}</span><span>🔴 {fmtTime(rec.clockOut)}</span><span style={{color:"#c4b5ff"}}>計 {fmtMin(wm)}</span>{wm>0&&<span style={{color:"#22d3a5",fontWeight:700}}>{fmtYen(calcWage(wm,wage).total)}</span>}</div>}
           </div>
         </div>
       );
@@ -610,10 +599,10 @@ function buildISO(dateStr, timeStr) {
           if (parsed.events)     setEvents(Array.isArray(parsed.events)?parsed.events:[]);
           if (parsed.wage)       setWage(parsed.wage);
           if (parsed.reportData) setReportData(parsed.reportData);
-          setImportMsg("✁Eインポ�Eト完亁E��データが復允E��れました、E);
+          setImportMsg("✅ インポート完了！データが復元されました。");
           setImportText("");
           setTimeout(()=>{setImportMsg("");setShowImport(false);},2000);
-        } catch { setImportMsg("❁EJSONの形式が正しくありません"); }
+        } catch { setImportMsg("❌ JSONの形式が正しくありません"); }
       }
 
       function stamp(type) {
@@ -648,12 +637,12 @@ function buildISO(dateStr, timeStr) {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
               <div>
                 <div style={{fontSize:10,letterSpacing:4,color:"#a89fff",textTransform:"uppercase",marginBottom:3}}>Attendance Manager</div>
-                <div style={{fontSize:24,fontWeight:800,letterSpacing:-1,marginBottom:2}}>出退勤管琁E/div>
+                <div style={{fontSize:24,fontWeight:800,letterSpacing:-1,marginBottom:2}}>出退勤管理</div>
                 <div style={{fontSize:12,color:"#9b8fff",marginBottom:16}}>{fmtDate(todayStr)}　{now.toLocaleTimeString("ja-JP")}</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end"}}>
-                <button onClick={()=>setShowWageModal(true)} style={{background:"rgba(34,211,165,0.15)",border:"1px solid rgba(34,211,165,0.35)",color:"#22d3a5",borderRadius:10,padding:"7px 11px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>💰 時給設宁E/button>
-                <button onClick={()=>setShowImport(v=>!v)} style={{background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.35)",color:"#fbbf24",borderRadius:10,padding:"7px 11px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>📥 チE�Eタ移衁E/button>
+                <button onClick={()=>setShowWageModal(true)} style={{background:"rgba(34,211,165,0.15)",border:"1px solid rgba(34,211,165,0.35)",color:"#22d3a5",borderRadius:10,padding:"7px 11px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>💰 時給設定</button>
+                <button onClick={()=>setShowImport(v=>!v)} style={{background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.35)",color:"#fbbf24",borderRadius:10,padding:"7px 11px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>📥 データ移行</button>
               </div>
             </div>
             <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.07)",borderRadius:12,padding:3,marginBottom:20}}>
@@ -664,19 +653,19 @@ function buildISO(dateStr, timeStr) {
           <div style={{width:"100%",maxWidth:480,padding:"0 24px 48px",boxSizing:"border-box"}}>
             {showImport&&(
               <div style={{background:"rgba(251,191,36,0.08)",border:"1px solid rgba(251,191,36,0.35)",borderRadius:16,padding:18,marginBottom:16}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#fbbf24",marginBottom:14}}>📦 チE�Eタ移衁E/div>
+                <div style={{fontSize:13,fontWeight:700,color:"#fbbf24",marginBottom:14}}>📦 データ移行</div>
                 <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"#c4b5ff",marginBottom:6}}>📤 こ�Eアプリからエクスポ�EチE/div>
-                  <div style={{fontSize:11,color:"#9b8fff",marginBottom:10,lineHeight:1.7}}>新しいアプリに移行するときにコピ�Eしてください、E/div>
-                  <button onClick={doExport} style={{width:"100%",background:exportCopied?"rgba(34,211,165,0.5)":"rgba(138,101,255,0.5)",border:"none",color:"#fff",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:"pointer"}}>{exportCopied?"✁Eコピ�Eしました�E�E:"📋 JSONをコピ�E"}</button>
+                  <div style={{fontSize:12,fontWeight:700,color:"#c4b5ff",marginBottom:6}}>📤 このアプリからエクスポート</div>
+                  <div style={{fontSize:11,color:"#9b8fff",marginBottom:10,lineHeight:1.7}}>新しいアプリに移行するときにコピーしてください。</div>
+                  <button onClick={doExport} style={{width:"100%",background:exportCopied?"rgba(34,211,165,0.5)":"rgba(138,101,255,0.5)",border:"none",color:"#fff",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:"pointer"}}>{exportCopied?"✅ コピーしました！":"📋 JSONをコピー"}</button>
                 </div>
                 <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:"12px 14px"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"#c4b5ff",marginBottom:6}}>📥 インポ�EチE/div>
-                  <div style={{fontSize:11,color:"#9b8fff",marginBottom:10,lineHeight:1.7}}>コピ�EしたJSONを貼り付けてください、E/div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#c4b5ff",marginBottom:6}}>📥 インポート</div>
+                  <div style={{fontSize:11,color:"#9b8fff",marginBottom:10,lineHeight:1.7}}>コピーしたJSONを貼り付けてください。</div>
                   <textarea value={importText} onChange={e=>setImportText(e.target.value)} rows={3} placeholder='{"data":{...},"events":[...]} をここに貼り付け'
                     style={{...IS,resize:"vertical",fontFamily:"monospace",fontSize:12,marginBottom:8}} />
-                  {importMsg&&<div style={{fontSize:12,marginBottom:8,color:importMsg.startsWith("✁E)?"#22d3a5":"#f87171"}}>{importMsg}</div>}
-                  <button onClick={doImport} style={{width:"100%",background:"rgba(251,191,36,0.5)",border:"none",color:"#fff",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:"pointer"}}>インポ�Eト実衁E/button>
+                  {importMsg&&<div style={{fontSize:12,marginBottom:8,color:importMsg.startsWith("✅")?"#22d3a5":"#f87171"}}>{importMsg}</div>}
+                  <button onClick={doImport} style={{width:"100%",background:"rgba(251,191,36,0.5)",border:"none",color:"#fff",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:"pointer"}}>インポート実行</button>
                 </div>
               </div>
             )}
@@ -685,7 +674,7 @@ function buildISO(dateStr, timeStr) {
               <div>
                 <div style={{background:"rgba(255,255,255,0.06)",borderRadius:16,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
                   <span style={{fontSize:18}}>📍</span>
-                  <div style={{flex:1}}><div style={{fontSize:10,color:"#9b8fff",letterSpacing:2}}>現在のイベンチE/div><div style={{fontSize:14,fontWeight:700}}>{selectedEvent?`${selectedEvent.name}�E�E{selectedEvent.store}`:"�E�未選択！E}</div></div>
+                  <div style={{flex:1}}><div style={{fontSize:10,color:"#9b8fff",letterSpacing:2}}>現在のイベント</div><div style={{fontSize:14,fontWeight:700}}>{selectedEvent?`${selectedEvent.name}｜${selectedEvent.store}`:"（未選択）"}</div></div>
                   <button onClick={()=>setTab(1)} style={{background:"rgba(138,101,255,0.3)",border:"1px solid rgba(138,101,255,0.5)",color:"#c4b5ff",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer"}}>変更</button>
                 </div>
                 <div style={{background:"rgba(255,255,255,0.05)",borderRadius:18,padding:18,marginBottom:14,border:"1px solid rgba(138,101,255,0.18)"}}>
@@ -695,15 +684,15 @@ function buildISO(dateStr, timeStr) {
                       <div key={lbl} style={{textAlign:"center"}}><div style={{fontSize:10,color:"#9b8fff",marginBottom:3}}>{lbl}</div><div style={{fontSize:24,fontWeight:800,color:iso?col:"#444"}}>{fmtTime(iso)}</div></div>
                     ))}
                   </div>
-                  <div style={{display:"flex",justifyContent:"space-around",fontSize:12,color:"#c4b5ff",marginBottom:12}}><div>勤勁E{fmtMin(todayWork)}</div><div>休�E {fmtMin(todayBreak)}</div></div>
+                  <div style={{display:"flex",justifyContent:"space-around",fontSize:12,color:"#c4b5ff",marginBottom:12}}><div>勤務 {fmtMin(todayWork)}</div><div>休憩 {fmtMin(todayBreak)}</div></div>
                   <WageBadge workMin={todayWork} wage={wage} />
                   <div style={{marginTop:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
                     <StampBtn label="出勤" emoji="🟢" color="#22d3a5" disabled={!!todayRec.clockIn} onClick={()=>stamp("in")} />
                     <StampBtn label="退勤" emoji="🔴" color="#f87171" disabled={!todayRec.clockIn||!!todayRec.clockOut} onClick={()=>stamp("out")} />
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    <StampBtn label={isOnBreak?"休�E終亁E:"休�E開姁E} emoji={isOnBreak?"▶�E�E:"⏸�E�E} color="#fbbf24" disabled={!todayRec.clockIn||!!todayRec.clockOut} onClick={()=>stamp(isOnBreak?"breakEnd":"breakStart")} />
-                    <button onClick={()=>openEdit(todayStr,selectedEvent?.id)} style={{background:"rgba(138,101,255,0.15)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:12,padding:"14px 12px",cursor:"pointer",fontSize:13,fontWeight:600}}>✏︁E手動編雁E/button>
+                    <StampBtn label={isOnBreak?"休憩終了":"休憩開始"} emoji={isOnBreak?"▶️":"⏸️"} color="#fbbf24" disabled={!todayRec.clockIn||!!todayRec.clockOut} onClick={()=>stamp(isOnBreak?"breakEnd":"breakStart")} />
+                    <button onClick={()=>openEdit(todayStr,selectedEvent?.id)} style={{background:"rgba(138,101,255,0.15)",border:"1px solid rgba(138,101,255,0.35)",color:"#c4b5ff",borderRadius:12,padding:"14px 12px",cursor:"pointer",fontSize:13,fontWeight:600}}>✏️ 手動編集</button>
                   </div>
                 </div>
                 <PastDateSection data={data} wage={wage} selectedEvent={selectedEvent} todayStr={todayStr} openEdit={openEdit} />
@@ -714,15 +703,15 @@ function buildISO(dateStr, timeStr) {
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                   <div style={{fontSize:15,fontWeight:700}}>イベント一覧</div>
-                  <button onClick={()=>setShowNewEv(v=>!v)} style={{background:"rgba(138,101,255,0.7)",border:"none",color:"#fff",borderRadius:10,padding:"8px 16px",fontSize:13,cursor:"pointer",fontWeight:700}}>�E�E新要E/button>
+                  <button onClick={()=>setShowNewEv(v=>!v)} style={{background:"rgba(138,101,255,0.7)",border:"none",color:"#fff",borderRadius:10,padding:"8px 16px",fontSize:13,cursor:"pointer",fontWeight:700}}>＋ 新規</button>
                 </div>
                 {showNewEv&&(
                   <div style={{background:"rgba(255,255,255,0.07)",borderRadius:16,padding:18,marginBottom:14,border:"1px solid rgba(138,101,255,0.3)"}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>新規イベンチE/div>
-                    {[["イベント名","text",neName,setNeName,"例：春の外商フェア"],["百貨店�E場所","text",neStore,setNeStore,"例：新宿三趁E],["開始日","date",neStart,setNeStart,""],["終亁E��","date",neEnd,setNeEnd,""]].map(([label,type,val,set,ph])=>(
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>新規イベント</div>
+                    {[["イベント名","text",neName,setNeName,"例：春の外商フェア"],["百貨店・場所","text",neStore,setNeStore,"例：新宿三越"],["開始日","date",neStart,setNeStart,""],["終了日","date",neEnd,setNeEnd,""]].map(([label,type,val,set,ph])=>(
                       <div key={label} style={{marginBottom:10}}><div style={{fontSize:11,color:"#9b8fff",marginBottom:4}}>{label}</div><input type={type} value={val} onChange={e=>set(e.target.value)} placeholder={ph} style={IS} /></div>
                     ))}
-                    <button onClick={addEvent} style={{width:"100%",background:"rgba(138,101,255,0.8)",border:"none",color:"#fff",borderRadius:10,padding:12,fontSize:14,fontWeight:700,cursor:"pointer",marginTop:4}}>保存して選抁E/button>
+                    <button onClick={addEvent} style={{width:"100%",background:"rgba(138,101,255,0.8)",border:"none",color:"#fff",borderRadius:10,padding:12,fontSize:14,fontWeight:700,cursor:"pointer",marginTop:4}}>保存して選択</button>
                   </div>
                 )}
                 {events.length===0&&<div style={{textAlign:"center",color:"#9b8fff",fontSize:14,padding:40}}>イベントがまだありません</div>}
@@ -735,10 +724,10 @@ function buildISO(dateStr, timeStr) {
                   return (
                     <div key={ev.id} onClick={()=>{setSelectedEvent(ev);setTab(0);}} style={{background:isSelected?"rgba(138,101,255,0.25)":"rgba(255,255,255,0.05)",border:isSelected?"1px solid rgba(138,101,255,0.6)":"1px solid rgba(255,255,255,0.07)",borderRadius:16,padding:"16px 18px",marginBottom:12,cursor:"pointer",transition:"all .2s"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                        <div><div style={{fontWeight:700,fontSize:15}}>{ev.store}</div><div style={{fontSize:12,color:"#9b8fff",marginTop:2}}>📍 {ev.name}</div>{ev.start&&<div style={{fontSize:11,color:"#7b6fff",marginTop:2}}>{fmtJapDate(ev.start,ev.end)}</div>}</div>
+                        <div><div style={{fontWeight:700,fontSize:15}}>{ev.name}</div><div style={{fontSize:12,color:"#9b8fff",marginTop:2}}>📍 {ev.store}</div>{ev.start&&<div style={{fontSize:11,color:"#7b6fff",marginTop:2}}>{ev.start}〜{ev.end}</div>}</div>
                         <div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:800,color:"#22d3a5"}}>{fmtYen(evWage)}</div><div style={{fontSize:12,color:"#c4b5ff"}}>{fmtMin(evTotal)}</div><div style={{fontSize:11,color:"#9b8fff"}}>{evDays}日</div></div>
                       </div>
-                      {isSelected&&<div style={{marginTop:8,fontSize:11,color:"#a89fff",background:"rgba(138,101,255,0.2)",borderRadius:6,padding:"4px 10px",display:"inline-block"}}>✁E選択中</div>}
+                      {isSelected&&<div style={{marginTop:8,fontSize:11,color:"#a89fff",background:"rgba(138,101,255,0.2)",borderRadius:6,padding:"4px 10px",display:"inline-block"}}>✓ 選択中</div>}
                     </div>
                   );
                 })}
@@ -751,30 +740,30 @@ function buildISO(dateStr, timeStr) {
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18,flexWrap:"wrap"}}>
                   <input type="month" value={reportMonth} onChange={e=>setReportMonth(e.target.value)} style={{...IS,width:"auto"}} />
-                  <div style={{fontSize:13,color:"#9b8fff"}}>の雁E��E/div>
+                  <div style={{fontSize:13,color:"#9b8fff"}}>の集計</div>
                   <button onClick={async()=>{
-                    const lines=[`${reportMonth} 月次雁E��E,``,`総給与　${fmtYen(totalWage)}`,`出勤日数　${workDays}日`,`総勤務時間　${fmtMin(totalWork)}`,`残業時間　${fmtMin(totalOverMin)}`,``,`日別明細`];
+                    const lines=[`${reportMonth} 月次集計`,``,`総給与　${fmtYen(totalWage)}`,`出勤日数　${workDays}日`,`総勤務時間　${fmtMin(totalWork)}`,`残業時間　${fmtMin(totalOverMin)}`,``,`日別明細`];
                     reportAll.sort(([a],[b])=>a>b?1:-1).forEach(([key,rec])=>{
                       const dp=key.includes("_")?key.split("_")[1]:key;
                       const evId=key.includes("_")?key.split("_")[0]:null;
                       const ev=events.find(e=>e.id===evId);
                       const wm=calcWork(rec);
-                      lines.push(`${fmtDate(dp)}${ev?` ${ev.name}`:""}　${fmtTime(rec?.clockIn)}、E{fmtTime(rec?.clockOut)}　${fmtMin(wm)}　${fmtYen(calcWage(wm,wage).total)}`);
+                      lines.push(`${fmtDate(dp)}${ev?` ${ev.name}`:""}　${fmtTime(rec?.clockIn)}〜${fmtTime(rec?.clockOut)}　${fmtMin(wm)}　${fmtYen(calcWage(wm,wage).total)}`);
                     });
                     try{await navigator.clipboard.writeText(lines.join("\n"));}catch{}
-                  }} style={{background:"rgba(138,101,255,0.4)",border:"none",color:"#fff",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📋 コピ�E</button>
+                  }} style={{background:"rgba(138,101,255,0.4)",border:"none",color:"#fff",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📋 コピー</button>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
-                  {[["総給与（概算！E,fmtYen(totalWage),"💰","#22d3a5"],["出勤日数",`${workDays}日`,"📅","#c4b5ff"],["総勤務時閁E,fmtMin(totalWork),"⏱�E�E,"#c4b5ff"],["残業時間",fmtMin(totalOverMin),"⚡","#fbbf24"]].map(([label,val,emoji,col])=>(
+                  {[["総給与（概算）",fmtYen(totalWage),"💰","#22d3a5"],["出勤日数",`${workDays}日`,"📅","#c4b5ff"],["総勤務時間",fmtMin(totalWork),"⏱️","#c4b5ff"],["残業時間",fmtMin(totalOverMin),"⚡","#fbbf24"]].map(([label,val,emoji,col])=>(
                     <div key={label} style={{background:"rgba(138,101,255,0.15)",borderRadius:14,padding:"16px 18px",border:"1px solid rgba(138,101,255,0.25)"}}>
                       <div style={{fontSize:20,marginBottom:4}}>{emoji}</div><div style={{fontSize:20,fontWeight:800,color:col}}>{val}</div><div style={{fontSize:11,color:"#9b8fff",marginTop:2}}>{label}</div>
                     </div>
                   ))}
                 </div>
                 <div style={{background:"rgba(34,211,165,0.07)",border:"1px solid rgba(34,211,165,0.2)",borderRadius:14,padding:"14px 18px",marginBottom:14,fontSize:13}}>
-                  <div style={{fontSize:11,color:"#9b8fff",marginBottom:8,letterSpacing:2}}>給与�E訳</div>
+                  <div style={{fontSize:11,color:"#9b8fff",marginBottom:8,letterSpacing:2}}>給与内訳</div>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span>通常時給 ¥{wage.baseHourly.toLocaleString()}</span><span style={{color:"#22d3a5"}}>{fmtYen(reportAll.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).normal,0))}</span></div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}><span>残業割増（×{wage.overtimeRate}�E�E/span><span style={{color:"#fbbf24"}}>{fmtYen(reportAll.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).overtime,0))}</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between"}}><span>残業割増（×{wage.overtimeRate}）</span><span style={{color:"#fbbf24"}}>{fmtYen(reportAll.reduce((s,[,r])=>s+calcWage(calcWork(r),wage).overtime,0))}</span></div>
                 </div>
                 <div style={{background:"rgba(255,255,255,0.04)",borderRadius:16,padding:"16px 18px"}}>
                   <div style={{fontSize:11,color:"#9b8fff",letterSpacing:2,marginBottom:12}}>日別明細</div>
@@ -793,7 +782,7 @@ function buildISO(dateStr, timeStr) {
                             <div style={{fontSize:11,color:"#c4b5ff"}}>{fmtMin(wm)}</div>
                             <div style={{fontSize:13,fontWeight:700,color:"#22d3a5"}}>{fmtYen(w.total)}</div>
                             {w.overHours>0&&<div style={{fontSize:10,color:"#fbbf24"}}>残業 {w.overHours.toFixed(1)}h</div>}
-                            <button onClick={()=>openEdit(dp,evId)} style={{background:"none",border:"none",color:"#7060a0",fontSize:11,cursor:"pointer",padding:0}}>✏︁E編雁E/button>
+                            <button onClick={()=>openEdit(dp,evId)} style={{background:"none",border:"none",color:"#7060a0",fontSize:11,cursor:"pointer",padding:0}}>✏️ 編集</button>
                           </div>
                         </div>
                       </div>
