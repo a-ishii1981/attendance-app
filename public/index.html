@@ -495,7 +495,13 @@
     function PastDateSection({ data, wage, selectedEvent, todayStr, openEdit }) {
       const today = new Date(todayStr+"T00:00:00");
       const days = [];
-      for (let i=34; i>=0; i--) { const d=new Date(today); d.setDate(d.getDate()-i); days.push(localDateStr(d)); }
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(endOfWeek.getDate() + (6 - today.getDay()));
+      for (let i=34; i>=0; i--) {
+        const d = new Date(endOfWeek);
+        d.setDate(d.getDate() - i);
+        days.push(localDateStr(d));
+      }
       const [manualY, setManualY] = useState(String(today.getFullYear()));
       const [manualM, setManualM] = useState(pad(today.getMonth()+1));
       const [manualD, setManualD] = useState(pad(today.getDate()));
