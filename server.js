@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const { Pool } = require("pg");
 const session = require("express-session");
+const pgSession = require("connect-pg-simple")(session);
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
 
@@ -27,6 +28,10 @@ app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
 app.use(session({
+  store: new pgSession({
+    pool,
+    createTableIfMissing: true
+  }),
   secret: process.env.SESSION_SECRET || "attendance-app-secret-key-change-in-production",
   resave: false,
   saveUninitialized: false,
